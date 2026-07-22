@@ -1,6 +1,6 @@
 
 ui <- page_navbar(
-  title = HTML("conductivity-flagger <span style='font-size: 0.7em; opacity: 0.7;'> Version 0.1</span>"),
+  title = HTML("conductivity-flagger <span style='font-size: 0.7em; opacity: 0.7;'> Version 0.2</span>"),
   window_title = "conductivity-flagger",
   theme = bs_theme(bootswatch = "sandstone"),
   header = tagList(
@@ -33,7 +33,7 @@ ui <- page_navbar(
                       label = "Select station:",
                       choices = sort(unique(stations$cdec_id)),
                       multiple = FALSE, 
-                      selected = "BDL"),
+                      selected = "DMC"),
           dateInput("start_date", "Select Start date:", value = Sys.Date() - (365*2)),
           dateInput("end_date",   "Select End date:",   value = Sys.Date() -365 )
           ),
@@ -43,13 +43,13 @@ ui <- page_navbar(
           sliderInput(
             "physical_limits",
             "Select physical minimum and maximum",
-            value = c(10, 31000),
+            value = c(1, 1503),
             min = 1, 
             max = 50000),
           sliderInput(
             "stuck_thr",
             "Select threshold for stuck sensor (15-min intervals):",
-            value = 8,
+            value = 16,
             min = 4,
             max = 96),
           sliderInput(
@@ -61,7 +61,7 @@ ui <- page_navbar(
           sliderInput(
           "j",
           "Select threshold for acceptable jump between values:",
-          value = 1275,
+          value = 321,
           min = 1,
           max = 10000)
         ),
@@ -75,6 +75,11 @@ ui <- page_navbar(
       navset_tab(
         nav_panel(
           "Data Flagging",
+          br(),
+          div(
+            style = "text-align: center;", 
+            h3(textOutput("station_text"))
+          ),
           br(),
           withSpinner(dygraphOutput("original_plot", width = "90%")),
           hr(),
@@ -130,7 +135,11 @@ ui <- page_navbar(
         ### Data Summary -------------------
         nav_panel(
           "Data Diagnostics",
+          br(),
           div(
+            p("This data on this tab reflect summaries across the whole downloaded timespan of the dataset 
+              (1/1/2020 - 12/31/2025) rather than just the selected date range of the data"),
+            hr(),
           DTOutput("station_summary"),
           ),
           hr(),

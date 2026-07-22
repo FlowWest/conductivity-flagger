@@ -37,10 +37,23 @@ function(input, output, session){
     updateSliderInput(session, "j", value = new_j)
   }, ignoreNULL = FALSE)
   
+  ## Display station name -------------
+  station_display <- reactive({
+    df <- filtered_df()
+    location = unique(df$location_id)
+    x <- stations |> filter(cdec_id == location) |> select(cdec_id, description)
+    paste0(x$cdec_id, ": ", x$description)
+  })
+  
+  output$station_text <- renderText({
+   station_display()
+  })
+  
+  
   ## Apply flagger to filtered data -------------
   flagged_df <- eventReactive(input$submit,{
     df <- filtered_df()
-    flags <- flagger2(x = df$parameter_value,
+    flags <- flagger(x = df$parameter_value,
                             j = input$j,
                             k = input$k,
                             stuck_threshold = input$stuck_thr,
@@ -92,16 +105,18 @@ function(input, output, session){
   ## Tab 1 -------------------
   ### Plots -------------
   output$original_plot <- renderDygraph({
-    dygraph(xts_orig(), main= "Unflagged EC Data") |> 
+    df <- xts_orig()
+    dygraph(df, main= "Unflagged EC Data") |> 
       dySeries("parameter_value", label = "EC (uS/cm)", axis = "y") |> 
       dyAxis("y", label = "EC (uS/cm)") |> 
+      dyAxis("y", label = "EC (uS/cm)", valueRange = c(-30, max(df$parameter_value, na.rm = TRUE) * 1.05)) |>
       dyAxis("x", rangePad = 10) |> 
       dyOptions(
         connectSeparatedPoints = TRUE,
         useDataTimezone = TRUE,
         drawGrid = TRUE,
         drawPoints = TRUE,
-        pointSize = 3) |> 
+        pointSize = 2) |> 
       dyCallbacks(drawHighlightPointCallback = JS(
         "function(g, seriesName, canvasContext, cx, cy, color, pointSize) {
          canvasContext.beginPath();
@@ -132,31 +147,29 @@ function(input, output, session){
     dg <- dygraph(df, main = "Flagged EC Data") |> 
       dySeries("good", label = "Good",
                color = "rgba(153, 153, 153, 0.3)", 
-               pointSize = 1,
-               strokeWidth = 1) |>
+               pointSize = 1, strokeWidth = 1) |>
       dySeries("warmup", label = "warmup",
                color = "rgba(232, 109, 176, 0.9)",
-               pointSize = 4,
-               strokeWidth = 2) |>
+               pointSize = 4, strokeWidth = 2) |>
       dySeries("warmup_extreme", label = "warmup & extreme",
                color = "rgba(168, 15, 103, 0.9)", 
-               pointSize = 4,
-               strokeWidth = 2) |>
+               pointSize = 4, strokeWidth = 2) |>
       dySeries("extreme", label = "extreme",
                color = "rgba(230, 159, 0, 0.9)", 
-               pointSize = 4,
-               strokeWidth = 2) |>
+               pointSize = 4, strokeWidth = 2) |>
       dySeries("stuck", label = "stuck value",
                color = "rgba(0, 114, 178, 0.9)", 
-               pointSize = 4,
-               strokeWidth = 2) |>
+               pointSize = 4, strokeWidth = 2) |>
       dySeries("stat_outlier", label = "outlier/spike",
                color = "rgba(0, 158, 115, 0.9)", 
-               pointSize = 4,
-               strokeWidth = 2) |>
-      dySeries("flag_ann_code", axis = "y2", strokeWidth = 0, drawPoints = FALSE, color = "rgba(0,0,0,0)") |>
+               pointSize = 4, strokeWidth = 2) |>
+      # include but hide annotations
+      dySeries("flag_ann_code", axis = "y2", 
+               strokeWidth = 0, drawPoints = FALSE, color = "rgba(0,0,0,0)") |>
       dyAxis("y2", drawGrid = FALSE, valueRange = c(0, 1), independentTicks = FALSE) |>
-      dyAxis("y", label = "EC (uS/cm)", valueRange = c(-20, max(df$parameter_value, na.rm = TRUE) * 1.05)) |>
+      # normal y axis
+      dyAxis("y", label = "EC (uS/cm)", valueRange = c(-30, max(df$parameter_value, na.rm = TRUE) * 1.05)) |>
+      # x axis padding
       dyAxis("x", rangePad = 10) |> 
       dyOptions(
         connectSeparatedPoints = FALSE,
@@ -164,6 +177,7 @@ function(input, output, session){
         drawGrid = TRUE,
         drawPoints = TRUE,
         pointSize = 3) |> 
+      # custom legend
       dyCallbacks(
         drawHighlightPointCallback = JS(
           "function(g, seriesName, canvasContext, cx, cy, color, pointSize) {
@@ -178,20 +192,20 @@ function(input, output, session){
           }"
         ),
         highlightCallback = JS(sprintf("
-          function(event, x, points, row, seriesName) {
-            var annLevels = %s;
-            var ecPoint = points.find(function(p){ return (p.name === 'Good' || p.name === 'Flagged') && !isNaN(p.yval); });
-            var annPoint = points.find(function(p){ return p.name === 'flag_ann_code'; });
-            var ecTxt = ecPoint ? ecPoint.yval.toFixed(1) : 'NA';
-            var annCode = annPoint ? annPoint.yval : null;
-            var annTxt = (annCode != null && annLevels[annCode - 1] != null) ? annLevels[annCode - 1] : 'Good';
-            var tooltip = document.getElementById('qc_tooltip');
-            tooltip.innerHTML = '<strong>' + new Date(x).toLocaleString() + '</strong><br>EC: ' + ecTxt + ' uS/cm<br>Flag: ' + annTxt;
-            tooltip.style.left = (event.clientX + 15) + 'px';
-            tooltip.style.top = (event.clientY + 15) + 'px';
-            tooltip.style.display = 'block';
-          }
-        ", jsonlite::toJSON(ann_lvls))),
+  function(event, x, points, row, seriesName) {
+    var annLevels = %s;
+    var ecPoint = points.find(function(p){ return p.name !== 'flag_ann_code' && !isNaN(p.yval); });
+    var annPoint = points.find(function(p){ return p.name === 'flag_ann_code'; });
+    var ecTxt = ecPoint ? ecPoint.yval.toFixed(1) : 'NA';
+    var annCode = annPoint ? annPoint.yval : null;
+    var annTxt = (annCode != null && annLevels[annCode - 1] != null) ? annLevels[annCode - 1] : 'Good';
+    var tooltip = document.getElementById('qc_tooltip');
+    tooltip.innerHTML = '<strong>' + new Date(x).toLocaleString() + '</strong><br>EC: ' + ecTxt + ' uS/cm<br>Flag: ' + annTxt;
+    tooltip.style.left = (event.clientX + 15) + 'px';
+    tooltip.style.top = (event.clientY + 15) + 'px';
+    tooltip.style.display = 'block';
+  }
+", jsonlite::toJSON(ann_lvls))),
         unhighlightCallback = JS(
           "function(event) {
             document.getElementById('qc_tooltip').style.display = 'none';
@@ -209,15 +223,50 @@ function(input, output, session){
     
     dg$x$attrs$axes$y2$drawAxis <- FALSE
     
+    # highlight gaps
     gaps <- na_gaps()
     if (!is.null(gaps)) {
       for (i in seq_len(nrow(gaps))) {
-        dg <- dyShading(dg, from = gaps$start[i], to = gaps$end[i], color = "#C4C6BD")
+        dg <- dyShading(dg, from = gaps$start[i], to = gaps$end[i], color = "#BEE6E9")
       }
     }
     
     dg
   })
+  
+   ### Percent flagged -------------
+  output$percent_flagged <- renderDT({
+    df <- flagged_df() |> 
+      mutate(n_total = n()) |> 
+      group_by(flag_ann, n_total) |> 
+      summarize(n_flagged = n()) |> 
+      ungroup() |> 
+      mutate(pct_flagged = n_flagged/n_total) |> 
+      # mutate(flag_ann = forcats::fct_relevel(flag_ann, "good")) |> 
+      select(flag_ann, n_flagged, pct_flagged) |> 
+      # arrange(flag_ann) |> 
+      filter(flag_ann!="good")
+    
+    df_w_total <- df |> janitor::adorn_totals(where = "row", fill = "-", na.rm = TRUE)
+    
+    datatable(df_w_total,
+              rownames = FALSE,
+              options = list(
+                fixedHeader=TRUE,
+                autoWidth = TRUE,
+                pageLength = 10,
+                scrollCollapse = TRUE),
+              colnames = c("Flag type", 
+                           "Flagged values", 
+                           "Percent flagged")) |> 
+      formatPercentage(columns = "pct_flagged",
+                     digits = 2) |> 
+      formatRound("n_flagged", digits = 0, mark = ",") |> 
+      formatStyle(1:ncol(df_w_total),
+                  target='row',
+                  fontWeight = styleEqual('Total', "bold")
+      )
+        })
   
   ### Table of flagged values --------------
   output$table_flagged <- renderDT({
@@ -234,49 +283,22 @@ function(input, output, session){
                            "Month",
                            "EC",
                            "Flag type")) 
-    
-    
   })
   
-  ### Percent flagged -------------
-  output$percent_flagged <- renderDT({
-    df <- flagged_df() |> 
-      mutate(n_total = n()) |> 
-      group_by(flag_ann, n_total) |> 
-      summarize(n_flagged = n()) |> 
-      ungroup() |> 
-      mutate(pct_flagged = n_flagged/n_total) |> 
-      mutate(flag_ann = forcats::fct_relevel(flag_ann, "good")) |> 
-      select(flag_ann, n_flagged, pct_flagged) |> 
-      arrange(flag_ann)
-    
-    datatable(df,
-              rownames = FALSE,
-              options = list(
-                fixedHeader=TRUE,
-                scrollY = "500px",
-                autoWidth = TRUE,
-                pageLength = 10,
-                scrollCollapse = TRUE),
-              colnames = c("Flag type", 
-                           "Flagged values", 
-                           "Percent flagged")) |> 
-      formatPercentage(columns = "pct_flagged",
-                     digits = 2) |> 
-      formatRound("n_flagged", digits = 0, mark = ",")
-        })
+ 
   
   
   ## Tab 2 -----------
   ### Station summary -----------
   output$station_summary <- renderDT({
     df <- filtered_station() |> 
+      filter(!is.na(datetime)) |> 
       mutate(step = abs(parameter_value - lag(parameter_value))) |>
       filter(parameter_value > 0, parameter_value < 50000, lag(parameter_value) > 0) |>
       group_by(month = month(datetime)) |>
-      summarise(step_p999 = round(quantile(step, .999, na.rm = TRUE),2), step_max = max(step, na.rm = TRUE),
-                val_p001 = round(quantile(parameter_value, 0.001, na.rm=TRUE),2),
-                val_p999 = round(quantile(parameter_value, .999, na.rm = TRUE),2), 
+      summarise(step_p999 = round(quantile(step, .999, na.rm = TRUE),1), step_max = max(step, na.rm = TRUE),
+                val_p001 = round(quantile(parameter_value, 0.001, na.rm=TRUE),1),
+                val_p999 = round(quantile(parameter_value, .999, na.rm = TRUE),1), 
                 val_min = min(parameter_value, na.rm = TRUE),
                 val_max = max(parameter_value, na.rm = TRUE)) |> 
       ungroup() 

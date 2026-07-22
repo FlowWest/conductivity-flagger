@@ -11,6 +11,7 @@ library(xts)
 library(htmlwidgets)
 library(shinycssloaders)
 library(jsonlite)
+library(janitor)
 source("functions.R")
 
 # Right now BKS is in the EC dataset but haven't set up how the flagger will work on it yet so leaving it out of selection
