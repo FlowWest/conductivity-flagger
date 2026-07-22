@@ -1,0 +1,37 @@
+"","station_id","cdec_id","d_1641_location","station_type","description","equipment","parameters_monitored","x8","x9","x10","x11","x12","operator","Latitude","Longitude"
+"1","C14","PCT","Table 5","C","Sacramento River @ Port Chicago","Hydrolab","●","●",NA,NA,NA,NA,"USBR",38.056788,-121.999971
+"2","C2","CLL","Table 5","C","Sacramento River @ Collinsville","Hydrolab","●","●",NA,NA,NA,NA,"USBR",38.073981,-121.850123
+"3","C4","SAL","Table 5","C","San Joaquin River @ San Andreas Landing","Hydrolab","●","●",NA,NA,NA,NA,"USBR",38.103301,-121.591315
+"4","C5","CNT","Table 5","C","Contra Costa Canal @ Pumping Plant #1","Hydrolab","●","●",NA,NA,NA,NA,"USBR",37.99495,-121.702809
+"5","C8","UNI","Table 5","C","Old River near Middle River","Hydrolab","●","●",NA,NA,NA,NA,"USBR",37.822101,-121.37499
+"6","D22","EMM","Table 2","C","Sacramento River @ Emmaton","Hydrolab","●","●",NA,NA,NA,NA,"USBR",38.084272,-121.738924
+"7","DMC1","DMC","Table 5","C & B","Delta-Mendota Canal at Tracy Pumping Plant","Hydrolab","●","●",NA,NA,NA,NA,"USBR",37.781567,-121.590239
+"8","BKS","BKS","Table 5","C","Barker Slough at North Bay Aqueduct (SLBAR3)","Foxboro, Hach Surface Scatter 7, Eutech Instruments pH meter","●","●","●",NA,"●",NA,"DWR",38.2759,-121.7965
+"9","C13","MOK","Table 5","C","Mokelumne River @ Terminous","EXO2","●","●",NA,NA,"●",NA,"DWR",38.1061,-121.5711
+"10","C9","WCI","Table 1","C","West Canal at mouth of Clifton Court Forebay","EXO2","●","●","●","●","●","●","DWR",37.8316,-121.554
+"11","D28A","OBI","Table 5","B","Old River near Rancho Del Rio","EXO2","●","●","●","●","●","●","DWR",37.96936798,-121.5722198
+"12","TRN","TRN","Table 5","B","San Joaquin River (Turner Cut to Stockton)","EXO2","●","●","●","●","●","●","DWR",37.9928,-121.4542
+"13","D15","SJJ","Table 5","C","San Joaquin River @ Jersey Point","EXO2","●","●",NA,NA,"●","●","USGS",38.052,-121.689
+"14","FPT","FPT","Table 5","C","Sacramento River (I St. Bridge to Freeport)","EXO2","●","●",NA,NA,"●",NA,"USGS",38.45,-121.5
+"15","C6","BDT","Table 5","C","San Joaquin River @ Brandt Bridge site","YSI LS600","●","●",NA,NA,NA,NA,"DWR",37.865,-121.3231
+"16","P12","OLD","Table 5","C","Old River @ Tracy Road Bridge","YSI LS600","●","●",NA,NA,NA,NA,"DWR",37.80480957,-121.4495621
+"17","C10A","SJR","Table 2","C & B","San Joaquin River near Vernalis","EXO2","●","●","●","●","●","●","DWR",37.67929,-121.26511
+"18","C3A","SRH","Table 5","B","Sacramento River @ Greens Landing","EXO2","●","●","●","●","●","●","DWR",38.36798096,-121.5199585
+"19","C7A","MSD","Table 5","B","San Joaquin River @ Mossdale Bridge","EXO2","●","●","●","●","●","●","DWR",37.786,-121.306
+"20","D10A","MAL","Table 5","C & B","Sacramento River @ Chipps Island","EXO2","●","●","●","●","●","●","DWR",38.04280472,-121.9200897
+"21","D12A","ANH","Table 5","C & B","San Joaquin River @ Antioch Ship Canal","EXO2","●","●","●","●","●","●","DWR",38.0178299,-121.8029633
+"22","D16A","TWI","Table 5","B","San Joaquin River @ Twitchell Island","EXO2","●","●","●","●","●","●","DWR",38.0969,-121.6691
+"23","D24A","RVB","Table 5","C & B","Sacramento River below Rio Vista Bridge","EXO2","●","●","●","●","●","●","DWR",38.159737,-121.686355
+"24","D29","PPT","Table 5","C","San Joaquin River @ Prisoners Point","EXO2","●","●","●","●","●","●","DWR",38.066,-121.562
+"25","D6A","MRZ","Table 5","B","Suisun Bay @ Bulls Head Point near Martinez","EXO2","●","●","●","●","●","●","DWR",38.02763748,-122.1404877
+"26","D7A","GZL","Table 5","B","Grizzly Bay @ Dolphin near Suisun Slough","EXO2","●","●","●","●","●","●","DWR",38.12425,-122.038117
+"27","D8A","RYC","Table 5","B","Suisun Bay off Middle Point near Nichols","EXO2","●","●","●","●","●","●","DWR",38.083971,-121.995878
+"28","P8A","RRI","Table 5","B","San Joaquin River @ Buckley Cove","EXO2","●","●","●","●","●","●","DWR",37.963,-121.365
+"29","S71","MSL","Table 5","B","Water supply intakes for waterfowl management areas on Van Sickle Island and Chipps Island","EXO2","●","●","●","●","●","●","DWR",38.0934,-121.8872
+"30","S21","SNC","Table 5","C","Chadbourne Slough @ Sunrise Duck Club","EXO2","●","●",NA,NA,NA,NA,"DWR",38.185,-122.083
+"31","S35","GYS","Table 5","B","Goodyear Slough @ Morrow Island Clubhouse","EXO2","●","●",NA,NA,NA,NA,"DWR",38.118,-122.095
+"32","S42","VOL","Table 5","C & B","Suisun Slough 300' south of Volanti Slough","EXO2","●","●","●","●","●","●","DWR",38.181,-122.046
+"33","S49","BDL","Table 5","C","Montezuma Slough near Beldon Landing","EXO2","●","●","●","●","●","●","DWR",38.1869,-121.9708
+"34","S64","NSL","Table 5","C","Montezuma Slough @ National Steel","EXO2","●","●","●","●","●","●","DWR",38.1221,-121.8881
+"35","S97","IBS","Table 5","B","Cordelia Slough @ Ibis Club","EXO2","●","●",NA,NA,NA,NA,"DWR",38.157,-122.113
+"36","C19","CCS","Table 5","C","Cache Slough @ City of Vallejo Intake","n/a","station discontinued in 2015",NA,NA,NA,NA,NA,"USBR",38.2918,-121.742

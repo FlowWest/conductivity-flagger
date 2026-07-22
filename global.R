@@ -1,0 +1,19 @@
+library(shiny)
+library(tidyverse)
+library(bslib)
+library(plotly)
+library(shinycssloaders)
+library(DT)
+library(leaflet)
+library(plotly)
+library(dygraphs)
+library(xts)
+library(htmlwidgets)
+library(shinycssloaders)
+library(jsonlite)
+source("functions.R")
+
+# Right now BKS is in the EC dataset but haven't set up how the flagger will work on it yet so leaving it out of selection
+stations <- read.csv("data/stations.csv")|> filter(!cdec_id %in% c("CCS", "BKS"))
+ec_data <- read_rds("data/ec_2020_2025.rds")|> mutate(month = month(datetime))  |> 
+  select(location_id, datetime, month, parameter_value) |> arrange(datetime)
