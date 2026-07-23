@@ -54,8 +54,10 @@ function(input, output, session){
   flagged_df <- eventReactive(input$submit,{
     df <- filtered_df()
     flags <- flagger(x = df$parameter_value,
+                     warmup = input$warmup,
                             j = input$j,
                             k = input$k,
+                            consec_threshold = input$consec_thr,
                             stuck_threshold = input$stuck_thr,
                             physical_min = input$physical_limits[1],
                             physical_max = input$physical_limits[2]
@@ -245,7 +247,7 @@ function(input, output, session){
       # mutate(flag_ann = forcats::fct_relevel(flag_ann, "good")) |> 
       select(flag_ann, n_flagged, pct_flagged) |> 
       # arrange(flag_ann) |> 
-      filter(flag_ann!="good")
+      filter(!flag_ann %in% c("good", "warm-up"))
     
     df_w_total <- df |> janitor::adorn_totals(where = "row", fill = "-", na.rm = TRUE)
     

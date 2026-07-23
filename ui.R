@@ -53,6 +53,18 @@ ui <- page_navbar(
             min = 1, 
             max = 50000),
           sliderInput(
+            "warmup",
+            "Select number of values used to create baseline (warmup) :",
+            value = 12,
+            min = 4,
+            max = 96),
+          sliderInput(
+            "consec_thr",
+            "Select threshold of flagged values to trigger creating new baseline :",
+            value = 24,
+            min = 4,
+            max = 96),
+          sliderInput(
             "stuck_thr",
             "Select threshold for stuck sensor (15-min intervals):",
             value = 16,
