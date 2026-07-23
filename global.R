@@ -18,3 +18,5 @@ source("functions.R")
 stations <- read.csv("data/stations.csv")|> filter(!cdec_id %in% c("CCS", "BKS"))
 ec_data <- read_rds("data/ec_2020_2025.rds")|> mutate(month = month(datetime))  |> 
   select(location_id, datetime, month, parameter_value) |> arrange(datetime)
+first_date = format(min(ec_data$datetime, na.rm = TRUE), "%Y-%m-%d")
+last_date = format(max(ec_data$datetime, na.rm = TRUE), "%Y-%m-%d")

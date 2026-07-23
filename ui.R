@@ -34,8 +34,14 @@ ui <- page_navbar(
                       choices = sort(unique(stations$cdec_id)),
                       multiple = FALSE, 
                       selected = "DMC"),
-          dateInput("start_date", "Select Start date:", value = Sys.Date() - (365*2)),
-          dateInput("end_date",   "Select End date:",   value = Sys.Date() -365 )
+          dateInput("start_date", 
+                    label = tagList("Select Start date:", tags$br(),
+                                    tags$small(paste0("(earliest date is ", first_date, ")"))), 
+                    value = Sys.Date() - (365*2)),
+          dateInput("end_date",   
+                    tagList("Select End date:", tags$br(),
+                                    tags$small(paste0("(latest date is ", last_date, ")"))), 
+                    value = Sys.Date() -365 )
           ),
         div(
           style = "border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; margin-bottom: 12px;",
