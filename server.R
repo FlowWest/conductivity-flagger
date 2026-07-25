@@ -1,25 +1,24 @@
 function(input, output, session){
   
   ## Data filtering ----------------
-  filtered_df <- eventReactive(input$submit,{
+    filtered_station <- eventReactive(input$submit,{
     ec_data |> 
       filter(location_id == input$station) |> 
+      arrange(datetime)
+  }, ignoreNULL = FALSE)
+    
+    filtered_df <- reactive({
+    filtered_station() |> 
       filter(datetime >= input$start_date,
              datetime <= input$end_date) |> 
       arrange(datetime)
-  }, ignoreNULL = FALSE)
-  
-  xts_orig <- reactive({
-    df <- filtered_df()
-    df$datetime <- as.POSIXct(df$datetime, tz = "America/Los_Angeles")
-    xts(df["parameter_value"], order.by = df$datetime)
   })
-  
-  filtered_station <- eventReactive(input$submit,{
-    ec_data |> 
-      filter(location_id == input$station) |> 
-      arrange(datetime)
-  }, ignoreNULL = FALSE)
+  # xts_orig <- reactive({
+  #   df <- filtered_df()
+  #   df$datetime <- as.POSIXct(df$datetime, tz = "America/Los_Angeles")
+  #   xts(df["parameter_value"], order.by = df$datetime)
+  # })
+  # 
   
   ## Modify select input ----------------
   observeEvent(input$station, {
@@ -49,7 +48,6 @@ function(input, output, session){
    station_display()
   })
   
-  
   ## Apply flagger to filtered data -------------
   flagged_df <- eventReactive(input$submit,{
     df <- filtered_df()
@@ -68,7 +66,7 @@ function(input, output, session){
       )
   },ignoreNULL = FALSE)
   
-  ### xts format data -----------------
+### xts format data -----------------
     xts_flagged <- reactive({
     df <- flagged_df()
     df$datetime <- as.POSIXct(df$datetime, tz = "America/Los_Angeles")
@@ -106,47 +104,13 @@ function(input, output, session){
   
   ## Tab 1 -------------------
   ### Plots -------------
+  
+  #### Plot 1 -------------------
   output$original_plot <- renderDygraph({
-    df <- xts_orig()
-    dygraph(df, main= "Unflagged EC Data") |> 
-      dySeries("parameter_value", label = "EC (uS/cm)", axis = "y") |> 
-      dyAxis("y", label = "EC (uS/cm)") |> 
-      dyAxis("y", label = "EC (uS/cm)", valueRange = c(-30, max(df$parameter_value, na.rm = TRUE) * 1.05)) |>
-      dyAxis("x", rangePad = 10) |> 
-      dyOptions(
-        connectSeparatedPoints = TRUE,
-        useDataTimezone = TRUE,
-        drawGrid = TRUE,
-        drawPoints = TRUE,
-        pointSize = 2) |> 
-      dyCallbacks(drawHighlightPointCallback = JS(
-        "function(g, seriesName, canvasContext, cx, cy, color, pointSize) {
-         canvasContext.beginPath();
-         canvasContext.fillStyle = '#333333';      
-         canvasContext.strokeStyle = 'white';  
-         canvasContext.lineWidth = 1;
-         canvasContext.arc(cx, cy, pointSize * 1.5, 0, 2 * Math.PI, false);
-         canvasContext.fill();
-         canvasContext.stroke();
-       }"
-      )
-      ) |> 
-      dyHighlight(
-        highlightSeriesBackgroundAlpha = 0.5,
-        hideOnMouseOut = TRUE
-      ) |> 
-      dyLegend(show = "onmouseover", hideOnMouseOut = TRUE) |> 
-      dyCrosshair(direction = "vertical") |> 
-      dyUnzoom()
-  })
-  
-  
-  
-  output$qc_plot <- renderDygraph({
     df <- xts_flagged()
     ann_lvls <- attr(df, "ann_levels")
     
-    dg <- dygraph(df, main = "Flagged EC Data") |> 
+    dg <- dygraph(df, main = "Full time range of EC data") |> 
       dySeries("good", label = "Good",
                color = "rgba(153, 153, 153, 0.3)", 
                pointSize = 1, strokeWidth = 1) |>
@@ -193,20 +157,53 @@ function(input, output, session){
             canvasContext.stroke();
           }"
         ),
+        zoomCallback = JS("
+          function(minX, maxX, yRanges) {
+            if (window.__ecSync) return;
+            window.__ecSync = true;
+            try {
+              var targetEl = HTMLWidgets.find('#qc_plot');
+              var target = targetEl ? targetEl.dygraph : null;
+              if (target) target.updateOptions({dateWindow: [minX, maxX]});
+        
+              var selfEl = HTMLWidgets.find('#original_plot');
+              var self = selfEl ? selfEl.dygraph : null;
+              if (self) self.updateOptions({dateWindow: null});
+            } finally {
+              window.__ecSync = false;   // always clears, even if something above throws
+            }
+          }
+        "),
+        # highlight color based on selection from qc_plot
+        underlayCallback = JS("
+          function(canvas, area, g) {
+            var detailEl = HTMLWidgets.find('#qc_plot');
+            var detail = detailEl ? detailEl.dygraph : null;
+            if (!detail) return;        
+            var dw = detail.xAxisRange();
+            var x0 = g.toDomXCoord(dw[0]);
+            var x1 = g.toDomXCoord(dw[1]);
+            canvas.fillStyle = 'rgba(255, 221, 0, 0.25)'; //highlight color specified here
+            canvas.fillRect(x0, area.y, x1 - x0, area.h);
+            canvas.strokeStyle = 'rgba(230, 126, 0, 0.9)';
+            canvas.lineWidth = 1.5;
+            canvas.strokeRect(x0, area.y, x1 - x0, area.h);
+          }
+        "),
         highlightCallback = JS(sprintf("
-  function(event, x, points, row, seriesName) {
-    var annLevels = %s;
-    var ecPoint = points.find(function(p){ return p.name !== 'flag_ann_code' && !isNaN(p.yval); });
-    var annPoint = points.find(function(p){ return p.name === 'flag_ann_code'; });
-    var ecTxt = ecPoint ? ecPoint.yval.toFixed(1) : 'NA';
-    var annCode = annPoint ? annPoint.yval : null;
-    var annTxt = (annCode != null && annLevels[annCode - 1] != null) ? annLevels[annCode - 1] : 'Good';
-    var tooltip = document.getElementById('qc_tooltip');
-    tooltip.innerHTML = '<strong>' + new Date(x).toLocaleString() + '</strong><br>EC: ' + ecTxt + ' uS/cm<br>Flag: ' + annTxt;
-    tooltip.style.left = (event.clientX + 15) + 'px';
-    tooltip.style.top = (event.clientY + 15) + 'px';
-    tooltip.style.display = 'block';
-  }
+        function(event, x, points, row, seriesName) {
+          var annLevels = %s;
+          var ecPoint = points.find(function(p){ return p.name !== 'flag_ann_code' && !isNaN(p.yval); });
+          var annPoint = points.find(function(p){ return p.name === 'flag_ann_code'; });
+          var ecTxt = ecPoint ? ecPoint.yval.toFixed(1) : 'NA';
+          var annCode = annPoint ? annPoint.yval : null;
+          var annTxt = (annCode != null && annLevels[annCode - 1] != null) ? annLevels[annCode - 1] : 'Good';
+          var tooltip = document.getElementById('qc_tooltip');
+          tooltip.innerHTML = '<strong>' + new Date(x).toLocaleString() + '</strong><br>EC: ' + ecTxt + ' uS/cm<br>Flag: ' + annTxt;
+          tooltip.style.left = (event.clientX + 15) + 'px';
+          tooltip.style.top = (event.clientY + 15) + 'px';
+          tooltip.style.display = 'block';
+        }
 ", jsonlite::toJSON(ann_lvls))),
         unhighlightCallback = JS(
           "function(event) {
@@ -234,6 +231,233 @@ function(input, output, session){
     }
     
     dg
+  })
+    
+
+  #    dg <- dygraph(df, main = "Unflagged EC Data") |> 
+  #     dySeries("parameter_value", label = "EC (uS/cm)", axis = "y") |> 
+  #     dyAxis("y", label = "EC (uS/cm)", valueRange = c(-30, max(df$parameter_value, na.rm = TRUE) * 1.05)) |>
+  #     dyAxis("x", rangePad = 10) |> 
+  #     dyOptions(
+  #       connectSeparatedPoints = TRUE,
+  #       useDataTimezone = TRUE,
+  #       drawGrid = TRUE,
+  #       drawPoints = TRUE,
+  #       pointSize = 2) |> 
+  #     dyCallbacks(
+  #       drawHighlightPointCallback = JS(
+  #         "function(g, seriesName, canvasContext, cx, cy, color, pointSize) {
+  #        canvasContext.beginPath();
+  #        canvasContext.fillStyle = '#333333';      
+  #        canvasContext.strokeStyle = 'white';  
+  #        canvasContext.lineWidth = 1;
+  #        canvasContext.arc(cx, cy, pointSize * 1.5, 0, 2 * Math.PI, false);
+  #        canvasContext.fill();
+  #        canvasContext.stroke();
+  #      }"
+  #       ),
+  #       zoomCallback = JS("
+  #       function(minX, maxX, yRanges) {
+  #         var target = HTMLWidgets.find('#qc_plot').dygraph;
+  #         if (target) target.updateOptions({dateWindow: [minX, maxX]});
+  #         var self = HTMLWidgets.find('#original_plot').dygraph;
+  #         if (self) self.updateOptions({dateWindow: null});
+  #       }
+  #     ")
+  #     ) |> 
+  #     dyHighlight(
+  #       highlightSeriesBackgroundAlpha = 0.5,
+  #       hideOnMouseOut = TRUE
+  #     ) |> 
+  #     dyLegend(show = "onmouseover", hideOnMouseOut = TRUE) |> 
+  #     dyCrosshair(direction = "vertical") |> 
+  #     dyUnzoom()
+  #   
+  #   dg
+  # })
+  # 
+  # 
+  
+  output$qc_plot <- renderDygraph({
+    df <- xts_flagged()
+    ann_lvls <- attr(df, "ann_levels")
+    
+    dg <- dygraph(df, main = "Zoomed in EC Data") |> 
+      dySeries("good", label = "Good",
+               color = "rgba(153, 153, 153, 0.3)", 
+               pointSize = 1, strokeWidth = 1) |>
+      dySeries("warmup", label = "warmup",
+               color = "rgba(232, 109, 176, 0.9)",
+               pointSize = 4, strokeWidth = 2) |>
+      dySeries("warmup_extreme", label = "warmup & extreme",
+               color = "rgba(168, 15, 103, 0.9)", 
+               pointSize = 4, strokeWidth = 2) |>
+      dySeries("extreme", label = "extreme",
+               color = "rgba(230, 159, 0, 0.9)", 
+               pointSize = 4, strokeWidth = 2) |>
+      dySeries("stuck", label = "stuck value",
+               color = "rgba(0, 114, 178, 0.9)", 
+               pointSize = 4, strokeWidth = 2) |>
+      dySeries("stat_outlier", label = "outlier/spike",
+               color = "rgba(0, 158, 115, 0.9)", 
+               pointSize = 4, strokeWidth = 2) |>
+      # include but hide annotations
+      dySeries("flag_ann_code", axis = "y2", 
+               strokeWidth = 0, drawPoints = FALSE, color = "rgba(0,0,0,0)") |>
+      dyAxis("y2", drawGrid = FALSE, valueRange = c(0, 1), independentTicks = FALSE) |>
+      # normal y axis
+      dyAxis("y", label = "EC (uS/cm)", valueRange = c(-30, max(df$parameter_value, na.rm = TRUE) * 1.05)) |>
+      # x axis padding
+      dyAxis("x", rangePad = 10) |> 
+      dyOptions(
+        connectSeparatedPoints = FALSE,
+        useDataTimezone = TRUE,
+        drawGrid = TRUE,
+        drawPoints = TRUE,
+        pointSize = 3) |> 
+    dyRangeSelector() |> 
+    dyCallbacks(
+      clickCallback = JS(
+      "function(e, x, points) {
+           Shiny.setInputValue('qc_click', {x: x}, {priority: 'event'});
+         }"
+      ),
+      zoomCallback= JS(
+      "function(minDate, maxDate, yRanges) {
+           Shiny.setInputValue('qc_zoom', {min: minDate, max: maxDate}, {priority: 'event'});
+         }"
+      ),
+      drawCallback = JS("
+        function(g, isInitial) {
+          if (isInitial || window.__ecSync) return;
+          window.__ecSync = true;
+          try {
+            var overviewEl = HTMLWidgets.find('#original_plot');
+            var overview = overviewEl ? overviewEl.dygraph : null;
+            if (overview) overview.updateOptions({});
+          } finally {
+            window.__ecSync = false;   // always clears, even if resize() throws
+          }
+        }
+      "),
+      # custom legend
+      drawHighlightPointCallback = JS(
+        "function(g, seriesName, canvasContext, cx, cy, color, pointSize) {
+            if(seriesName === 'flag_ann_code') return;
+            canvasContext.beginPath();
+            canvasContext.fillStyle = '#333333';
+            canvasContext.strokeStyle = 'white';
+            canvasContext.lineWidth = 1;
+            canvasContext.arc(cx, cy, pointSize * 1.5, 0, 2 * Math.PI, false);
+            canvasContext.fill();
+            canvasContext.stroke();
+          }"
+      ),
+      highlightCallback = JS(sprintf("
+  function(event, x, points, row, seriesName) {
+    var annLevels = %s;
+    var ecPoint = points.find(function(p){ return p.name !== 'flag_ann_code' && !isNaN(p.yval); });
+    var annPoint = points.find(function(p){ return p.name === 'flag_ann_code'; });
+    var ecTxt = ecPoint ? ecPoint.yval.toFixed(1) : 'NA';
+    var annCode = annPoint ? annPoint.yval : null;
+    var annTxt = (annCode != null && annLevels[annCode - 1] != null) ? annLevels[annCode - 1] : 'Good';
+    var tooltip = document.getElementById('qc_tooltip');
+    tooltip.innerHTML = '<strong>' + new Date(x).toLocaleString() + '</strong><br>EC: ' + ecTxt + ' uS/cm<br>Flag: ' + annTxt;
+    tooltip.style.left = (event.clientX + 15) + 'px';
+    tooltip.style.top = (event.clientY + 15) + 'px';
+    tooltip.style.display = 'block';
+  }
+", jsonlite::toJSON(ann_lvls))),
+      unhighlightCallback = JS(
+        "function(event) {
+            document.getElementById('qc_tooltip').style.display = 'none';
+          }"
+      )
+    ) |> 
+      dyHighlight(
+        highlightCircleSize = 3,
+        highlightSeriesBackgroundAlpha = 0.5,
+        hideOnMouseOut = TRUE
+      ) |> 
+      dyLegend(show = "never") |> 
+      dyCrosshair(direction = "vertical") |> 
+      dyUnzoom()
+    
+    dg$x$attrs$axes$y2$drawAxis <- FALSE
+    
+    # highlight gaps
+    gaps <- na_gaps()
+    if (!is.null(gaps)) {
+      for (i in seq_len(nrow(gaps))) {
+        dg <- dyShading(dg, from = gaps$start[i], to = gaps$end[i], color = "#BEE6E9")
+      }
+    }
+    
+    dg
+  })
+  
+  
+  ### Saving annotations ----------------
+  pending_range <- reactiveVal(NULL)
+  pending_kind  <- reactiveVal(NULL)
+  
+  ms_to_time <- function(ms) as.POSIXct(ms / 1000, origin = "1970-01-01", tz = "UTC")
+  
+  observeEvent(input$qc_click, {
+    req(isTRUE(input$annotate_mode))  
+    t <- ms_to_time(input$qc_click$x)
+    pending_range(c(t, t))
+    pending_kind("point")
+    removeNotification("annotate_prompt")
+    updateCheckboxInput(session, "annotate_mode", value = FALSE)  # disarm
+    open_note_modal()
+  })
+  
+  observeEvent(input$qc_zoom, {
+    req(isTRUE(input$annotate_mode)) 
+    pending_range(c(ms_to_time(input$qc_zoom$min), ms_to_time(input$qc_zoom$max)))
+    pending_kind("range")
+    removeNotification("annotate_prompt")
+    updateCheckboxInput(session, "annotate_mode", value = FALSE)
+    open_note_modal()
+  })
+  
+  open_note_modal <- function() {
+    showModal(modalDialog(
+      title = "Add QC note",
+      textInput("flag_type", "Reason / flag type"),
+      textAreaInput("note_detail", "Notes"),
+      textInput("person_logging", "Logged by"),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("save_note", "Save")
+      )
+    ))
+  }
+  
+  observeEvent(input$save_note, {
+    rng <- pending_range()
+    
+    row <- tibble::tibble(
+      cdec_id      = input$station,
+      datetime_start = as.character(format(rng[1], "%Y-%m-%d %H:%M")),
+      datetime_end   = as.character(format(rng[2], "%Y-%m-%d %H:%M")),
+      reason    = input$flag_type,
+      notes     = input$note_detail,
+      warmup_vals = input$warmup,
+      lower_limit = input$physical_limits[1],
+      upper_limit = input$physical_limits[2],
+      consec_threshold = input$consec_thr,
+      stuck_threshold = input$stuck_thr,
+      mad_mult = input$k,
+      jump_threshold = input$j,
+      logged_by = input$person_logging,
+      logged_at = as.character(format(Sys.time(), "%Y-%m-%d %H:%M"))
+    )
+    
+    # add to google sheets
+    sheet_append(ss = sheet_url, sheet = "qc_notes", data = row)
+    removeModal()
   })
   
    ### Percent flagged -------------

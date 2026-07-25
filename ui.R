@@ -1,6 +1,6 @@
 
 ui <- page_navbar(
-  title = HTML("conductivity-flagger <span style='font-size: 0.7em; opacity: 0.7;'> Version 0.2</span>"),
+  title = HTML("conductivity-flagger <span style='font-size: 0.7em; opacity: 0.7;'> Version 0.4</span>"),
   window_title = "conductivity-flagger",
   theme = bs_theme(bootswatch = "sandstone"),
   header = tagList(
@@ -37,11 +37,11 @@ ui <- page_navbar(
           dateInput("start_date", 
                     label = tagList("Select Start date:", tags$br(),
                                     tags$small(paste0("(earliest date is ", first_date, ")"))), 
-                    value = Sys.Date() - (365*2)),
+                    value = first_date),
           dateInput("end_date",   
                     tagList("Select End date:", tags$br(),
                                     tags$small(paste0("(latest date is ", last_date, ")"))), 
-                    value = Sys.Date() -365 )
+                    value = last_date)
           ),
         div(
           style = "border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; margin-bottom: 12px;",
@@ -98,9 +98,36 @@ ui <- page_navbar(
             style = "text-align: center;", 
             h3(textOutput("station_text"))
           ),
-          br(),
+          ##### Original plot --------------
+          div(
+            style = "display: flex; flex-direction: column; align-items: center; width: 100%; margin-bottom: 5px;",
+            div(style = "width: 50%; background-color: #eef5ff; border: 1px solid #a9c9f0;
+             border-radius: 6px; padding: 10px 14px; text-align: center;
+             font-size: 16px; margin-bottom: 8px;",
+                div(style = "display: flex; align-items: center; justify-content: center; gap: 8px;",
+                    p("Highlight an area from left to right. Zoomed in plot will appear below. 
+            To hide extreme outliers, highlight the area you want to see from top to bottom, excluding the outlier.")
+            )
+            )
+            ),
           withSpinner(dygraphOutput("original_plot", width = "90%")),
           hr(),
+          
+          ##### Zoom Plot -------------------
+          div(
+            style = "display: flex; flex-direction: column; align-items: center; width: 100%; margin-bottom: 15px;",
+            div(style = "width: 40%; background-color: #eef5ff; border: 1px solid #a9c9f0;
+             border-radius: 6px; padding: 10px 14px; text-align: center;
+             font-size: 16px; margin-bottom: 8px;",
+                div(style = "display: flex; align-items: center; justify-content: center; gap: 8px;",
+                    h5("How to use plot and annotation tools", style = "margin: 0;"),
+                    plot_help()
+                )
+            ),
+            checkboxInput(inputId = "annotate_mode", 
+                          label = tags$b("Make an annotation"), 
+                          FALSE)
+          ),
           tags$div(
             style = "display:flex; flex-wrap:wrap; justify-content:center; gap:16px; align-items:center; margin-bottom:8px; font-size:14px; color:#555;",
             tags$div(
@@ -138,6 +165,8 @@ ui <- page_navbar(
                    style = "position: fixed; z-index: 1000; background: white; border: 1px solid #ccc;
                    border-radius: 4px; padding: 6px 10px; font-size: 13px;
                    box-shadow: 0 1px 4px rgba(0,0,0,0.2); pointer-events: none; display: none;"),
+          
+          
           withSpinner(dygraphOutput("qc_plot", width = "90%")),
           hr(),
           
@@ -155,7 +184,7 @@ ui <- page_navbar(
           "Data Diagnostics",
           br(),
           div(
-            p("This data on this tab reflect summaries across the whole downloaded timespan of the dataset 
+            p("The data on this tab reflect summaries across the whole downloaded timespan of the dataset 
               (1/1/2020 - 12/31/2025) rather than just the selected date range of the data"),
             hr(),
           DTOutput("station_summary"),
