@@ -201,3 +201,24 @@ flagger <- function(x, j, k = 8, warmup = 12, stuck_threshold = 8, consec_thresh
   }
   return(list(flag=flag, annotation=annotation))
 }
+
+
+### episode flagger
+
+
+get_windows <- function(df) {
+  if (length(df) == 0) return(list())
+  reduce(
+  map(df, ~ interval(.x - hours(12), .x + hours(12))),
+  \(acc, new) {
+    last <- acc[[length(acc)]]
+    if (int_overlaps(last, new)) {
+      acc[[length(acc)]] <- union(last, new)
+    } else {
+      acc <- c(acc, list(new))
+    }
+    acc
+  },
+  .init = list(interval(df[1] - hours(48), df[1] + hours(48)))
+)
+}
