@@ -1,6 +1,6 @@
 
 ui <- page_navbar(
-  title = HTML("conductivity-flagger <span style='font-size: 0.7em; opacity: 0.7;'> Version 0.5</span>"),
+  title = HTML("conductivity-flagger <span style='font-size: 0.7em; opacity: 0.7;'> Version 0.6</span>"),
   window_title = "conductivity-flagger",
   theme = bs_theme(bootswatch = "sandstone"),
   header = tagList(
@@ -178,8 +178,32 @@ ui <- page_navbar(
         ),
         
 
-        
         ### Data Summary -------------------
+        nav_panel(
+          "Episode Viewer",
+          br(),
+          textOutput("max_windows"),
+          numericInput("episode_num",
+                       label = "Select episode to view:",
+                       min = 1, value = 1, max = 1),
+          hr(),
+          div(
+            style = "display: flex; flex-direction: column; align-items: center; width: 100%; margin-bottom: 5px;",
+            div(style = "width: 50%; background-color: #eef5ff; border: 1px solid #a9c9f0;
+             border-radius: 6px; padding: 10px 14px; text-align: center;
+             font-size: 16px; margin-bottom: 8px;",
+                div(style = "display: flex; align-items: center; justify-content: center; gap: 8px;",
+                    p("The plot below provides context for where the episode occurs. 
+                      Daily averages are plotted with mins and maxes shaded in gray. 
+                      The highlighted orange band shows where the current episode occurs. Zoom in to see more detail.")
+                )
+            )
+          ),
+          withSpinner(dygraphOutput("episode_context_plot", height = "150px")),
+          br(),
+          withSpinner(plotOutput("episode_plot"))
+        ),
+        
         nav_panel(
           "Data Diagnostics",
           br(),

@@ -275,6 +275,7 @@ function(input, output, session){
   # 
   # 
   
+  #### Plot 2 ----------------------------
   output$qc_plot <- renderDygraph({
     df <- xts_flagged()
     ann_lvls <- attr(df, "ann_levels")
@@ -393,7 +394,7 @@ function(input, output, session){
     dg
   })
   
-  
+
   ### Saving annotations ----------------
   pending_range <- reactiveVal(NULL)
   pending_kind  <- reactiveVal(NULL)
@@ -507,11 +508,90 @@ function(input, output, session){
                            "EC",
                            "Flag type")) 
   })
-  
  
+  ## Tab 2 ----------------
+  ### Episodes 
+  flagged_windows <- reactive({
+    flagged_times <- flagged_df() |> 
+      filter(flag_ann == "hampel & jump") |>
+      pull(datetime)    
+    get_windows(flagged_times)
+  })
   
+  num_windows <- reactive({ length(flagged_windows()) })
   
-  ## Tab 2 -----------
+  output$max_windows <- renderText({
+    paste0(num_windows(), " episodes found for filtered selection")
+  })
+  
+  observeEvent(flagged_windows(), {
+    n <- num_windows()
+    updateNumericInput(
+      session, "episode_num",
+      min = if (n == 0) 0 else 1,
+      max = n,
+      value = if (n == 0) 0 else 1
+    )
+  })
+
+  ### Daily-aggregated series for the context plot -----------
+  context_daily <- reactive({
+    daily <- flagged_df() |>
+      mutate(day = as.Date(datetime)) |>
+      group_by(day) |>
+      summarise(
+        lwr = if (all(is.na(parameter_value))) NA_real_ else min(parameter_value, na.rm = TRUE),
+        ec  = mean(parameter_value, na.rm = TRUE),
+        upr = if (all(is.na(parameter_value))) NA_real_ else max(parameter_value, na.rm = TRUE),
+        .groups = "drop"
+      )
+    xts(daily[c("lwr", "ec", "upr")], order.by = as.POSIXct(daily$day, tz = "America/Los_Angeles"))
+  })
+
+  ### Episode output ---------------------
+  output$episode_context_plot <- renderDygraph({
+    req(input$episode_num, flagged_windows())
+    shiny::validate(need(num_windows() > 0, "No flagged episodes in this range."))
+    win <- flagged_windows()[[input$episode_num]]
+
+    dygraph(context_daily(), main = "Episode Temporal Context") |>
+      dySeries(c("lwr", "ec", "upr"), label = "EC (daily range)", color = "rgba(80,80,80,0.8)") |>
+      dyOptions(useDataTimezone = TRUE, drawGrid = FALSE) |>
+      dyShading(from = int_start(win), to = int_end(win), color = "rgba(255, 145, 0, 0.95)") |>
+      dyLegend(show = "never") |>
+      dyAxis("y", label = "")
+  })
+
+  output$episode_plot <- renderPlot({
+    req(input$episode_num, flagged_windows())
+    shiny::validate(need(num_windows() > 0, "No flagged episodes in this range."))
+    df <- flagged_df() |> filter(datetime %within% flagged_windows()[[input$episode_num]]) 
+    
+    ggplot(mapping = aes(datetime, parameter_value)) + 
+      geom_line(data = df) +
+      geom_point(data = df, aes(color = flag_ann), size = 3)+
+      theme_bw() +
+      scale_color_manual(
+        values = c(
+          "good"                  = rgb(153, 153, 153, alpha = 77,  maxColorValue = 255),
+          "warm-up"               = rgb(232, 109, 176, alpha = 230, maxColorValue = 255),
+          "warm-up extreme value" = rgb(168, 15,  103, alpha = 230, maxColorValue = 255),
+          "extreme value"         = rgb(230, 159, 0,   alpha = 230, maxColorValue = 255),
+          "stuck value"           = rgb(0,   114, 178, alpha = 230, maxColorValue = 255),
+          "hampel & jump"         = rgb(0,   158, 115, alpha = 230, maxColorValue = 255)
+        ),
+        name = "Flag type"
+      ) +
+      labs(y = "EC", title = "Episode Data (12 hours before and after episode)") +
+      theme_bw() + 
+      theme(legend.text = element_text(size = 16),
+            legend.title = element_text(size = 20),
+            axis.text = element_text(size = 16),
+            axis.title = element_text(size = 20),
+            plot.title = element_text(hjust = 0.5, size = 18, face = "bold"))
+  })
+  
+  ## Tab 3 -----------
   ### Station summary -----------
   output$station_summary <- renderDT({
     df <- filtered_station() |> 
