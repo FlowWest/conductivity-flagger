@@ -2,9 +2,7 @@ function(input, output, session){
   
   ## Data filtering ----------------
     filtered_station <- eventReactive(input$submit,{
-    ec_data |> 
-      filter(location_id == input$station) |> 
-      arrange(datetime)
+    get_station_data(input$station)
   }, ignoreNULL = FALSE)
     
     filtered_df <- reactive({
@@ -22,8 +20,7 @@ function(input, output, session){
   
   ## Modify select input ----------------
   observeEvent(input$station, {
-    station_vals <- ec_data |> 
-      filter(location_id == input$station) |> 
+    station_vals <- get_station_data(input$station) |>
       pull(parameter_value)
     
     new_min <- unname(pmax(min(station_vals, na.rm = TRUE) * 0.9, 1))
