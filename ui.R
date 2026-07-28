@@ -1,6 +1,6 @@
 
 ui <- page_navbar(
-  title = HTML("conductivity-flagger <span style='font-size: 0.7em; opacity: 0.7;'> Version 0.4</span>"),
+  title = HTML("conductivity-flagger <span style='font-size: 0.7em; opacity: 0.7;'> Version 0.5</span>"),
   window_title = "conductivity-flagger",
   theme = bs_theme(bootswatch = "sandstone"),
   header = tagList(

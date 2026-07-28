@@ -12,17 +12,44 @@ library(htmlwidgets)
 library(shinycssloaders)
 library(jsonlite)
 library(janitor)
+library(duckdb)
+library(DBI)
 source("functions.R")
 library(googlesheets4)
 
 # Right now BKS is in the EC dataset but haven't set up how the flagger will work on it yet so leaving it out of selection
 stations <- read.csv("data/stations.csv")|> filter(!cdec_id %in% c("CCS", "BKS"))
-ec_data <- read_rds("data/ec_2020_2025.rds")|> mutate(month = month(datetime))  |> 
-  select(location_id, datetime, month, parameter_value) |> arrange(datetime)
-first_date = format(min(ec_data$datetime, na.rm = TRUE), "%Y-%m-%d")
-last_date = format(max(ec_data$datetime, na.rm = TRUE), "%Y-%m-%d")
 
+## EC data ------------------
+# Parquet file queried via duckdb connection reduces the memory needing to be stored for the whole EC dataset. 
+# Only requested station is pulled in at a time.
+ec_parquet <- "data/ec_2020_2025.parquet"
+ec_con <- dbConnect(duckdb::duckdb(shared_home = FALSE, allow_extensions = FALSE), read_only = TRUE)
 
+# duckdb doesn't preserve "America/Los_Angeles" tzone label (it comes back tagged
+# "UTC") so reformatted to work with original script
+get_station_data <- function(station) {
+  dbGetQuery(ec_con, sprintf("
+    SELECT location_id, datetime, parameter_value
+    FROM read_parquet('%s')
+    WHERE location_id = ?
+    ORDER BY datetime
+  ", ec_parquet), params = list(station)) |>
+    as_tibble() |>
+    mutate(datetime = with_tz(datetime, "America/Los_Angeles"),
+           month = month(datetime))
+}
+
+ec_date_range <- dbGetQuery(ec_con, sprintf(
+  "SELECT MIN(datetime) AS min_dt, MAX(datetime) AS max_dt FROM read_parquet('%s')", ec_parquet))
+first_date <- format(with_tz(ec_date_range$min_dt, "America/Los_Angeles"), "%Y-%m-%d")
+last_date <- format(with_tz(ec_date_range$max_dt, "America/Los_Angeles"), "%Y-%m-%d")
+
+onStop(function() {
+  dbDisconnect(ec_con, shutdown = TRUE)
+})
+
+## Info text for using plot----------------------
 plot_help <- function(text = paste0(
   "<strong>Plot Controls</strong><br>",
   "<ul><li>Hover to see the value details</li>
@@ -40,7 +67,6 @@ plot_help <- function(text = paste0(
   )
 }
 
-
-### Google sheets -----------
+## Google sheets -----------
 gs4_auth(cache = ".secrets", email = "cpien@flowwest.com")
 sheet_url = "https://docs.google.com/spreadsheets/d/1zFra8tJ7b7OsU7ML-76W6CurTvRTi2OAwj75SAioUcI/edit?gid=0#gid=0"
