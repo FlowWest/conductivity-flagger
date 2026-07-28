@@ -1,5 +1,7 @@
 library("CDECRetrieve")
 library("tidyverse")
+library("duckdb")
+library("DBI")
 
 # get list of stations
 stations <- read.csv("data/stations.csv") |> filter(!cdec_id %in% c("CCS", "BKS"))
@@ -30,4 +32,13 @@ all_data <- bind_rows(event_data, bks_data)
 
 # write data
 write_rds(all_data, "data/ec_2020_2025.rds", compress = "xz")
+
+# write a parquet copy, queries this lazily via duckdb instead
+# of loading the whole multi-station table. Sorted by
+# location_id/datetime to filter by station
+all_data_sorted <- all_data |> arrange(location_id, datetime)
+parquet_con <- dbConnect(duckdb())
+duckdb_register(parquet_con, "all_data_sorted", all_data_sorted)
+dbExecute(parquet_con, "COPY all_data_sorted TO 'data/ec_2020_2025.parquet' (FORMAT PARQUET, COMPRESSION ZSTD, ROW_GROUP_SIZE 50000)")
+dbDisconnect(parquet_con, shutdown = TRUE)
 
