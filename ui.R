@@ -43,6 +43,7 @@ ui <- page_navbar(
                                     tags$small(paste0("(latest date is ", last_date, ")"))), 
                     value = last_date)
           ),
+        if (!USE_PRECOMPUTED_FLAGS)
         div(
           style = "border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; margin-bottom: 12px;",
           h5("QC Filter Settings"),
@@ -50,7 +51,7 @@ ui <- page_navbar(
             "physical_limits",
             "Select physical minimum and maximum",
             value = c(1, 1503),
-            min = 1, 
+            min = 1,
             max = 50000),
           sliderInput(
             "warmup",
