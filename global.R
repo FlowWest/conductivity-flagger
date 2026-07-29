@@ -1,3 +1,5 @@
+source("app_config.R") # Change this to USE_PRECOMPUTED_FLAGS to TRUE to use pre-flagged data based on defaults
+
 library(shiny)
 library(tidyverse)
 library(bslib)
@@ -35,6 +37,22 @@ get_station_data <- function(station) {
     WHERE location_id = ?
     ORDER BY datetime
   ", ec_parquet), params = list(station)) |>
+    as_tibble() |>
+    mutate(datetime = with_tz(datetime, "America/Los_Angeles"),
+           month = month(datetime))
+}
+
+# Precomputed alternative to get_station_data() -- used when USE_PRECOMPUTED_FLAGS
+# is TRUE, so the flagger doesn't need to run on every Submit. 
+flagged_parquet <- "data/flagged_allstations.parquet"
+
+get_flagged_station_data <- function(station) {
+  dbGetQuery(ec_con, sprintf("
+    SELECT location_id, datetime, parameter_value, flag, flag_ann
+    FROM read_parquet('%s')
+    WHERE location_id = ?
+    ORDER BY datetime
+  ", flagged_parquet), params = list(station)) |>
     as_tibble() |>
     mutate(datetime = with_tz(datetime, "America/Los_Angeles"),
            month = month(datetime))
