@@ -45,7 +45,7 @@ get_inputs <- function(station) {
   new_max <- unname(ceiling(quantile(sta_data$parameter_value, 0.999, na.rm = TRUE) * 1.5))
   
   step_vals <- abs(diff(sta_data$parameter_value))
-  new_j <- unname(ceiling(quantile(sta_data$parameter_value, 0.999, na.rm = TRUE)) * 1.25)
+  new_j <- unname(ceiling(quantile(step_vals, 0.999, na.rm = TRUE)) * 1.25)
   
   output <- list(new_min, new_max, new_j)
   names(output) <- c("min", "max", "j")
@@ -70,6 +70,7 @@ flag_data <- function(station) {
 }
 
 flagged <- lapply(sta_list, flag_data)
+names(flagged) <- sta_list
 flagged_df <- bind_rows(flagged)
 saveRDS(flagged_df, "data/flagged_allstations.rds", compress = "xz")
   
