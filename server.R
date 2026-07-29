@@ -16,22 +16,35 @@ function(input, output, session){
   #   df$datetime <- as.POSIXct(df$datetime, tz = "America/Los_Angeles")
   #   xts(df["parameter_value"], order.by = df$datetime)
   # })
-  # 
-  
-  ## Modify select input ----------------
-  observeEvent(input$station, {
-    station_vals <- get_station_data(input$station) |>
-      pull(parameter_value)
-    
-    new_min <- unname(pmax(min(station_vals, na.rm = TRUE) * 0.9, 1))
-    new_max <- unname(ceiling(quantile(station_vals, 0.999, na.rm = TRUE) * 1.5))
-    
+  #
+
+  ## station defaults used to generate flagged_allstations.parquet that gets called for google sheets filling during pre-flagged setting
+  precomputed_defaults <- reactive({
+    station_vals <- filtered_station()$parameter_value
     step_vals <- abs(diff(station_vals))
-    new_j <- unname(ceiling(quantile(step_vals, 0.999, na.rm = TRUE)) * 1.25)
-    
-    updateSliderInput(session, "physical_limits", value = c(new_min, new_max))
-    updateSliderInput(session, "j", value = new_j)
-  }, ignoreNULL = FALSE)
+    list(
+      min = unname(pmax(min(station_vals, na.rm = TRUE) * 0.9, 1)),
+      max = unname(ceiling(quantile(station_vals, 0.999, na.rm = TRUE) * 1.5)),
+      j   = unname(ceiling(quantile(step_vals, 0.999, na.rm = TRUE)) * 1.25)
+    )
+  })
+
+  ## Modify select input ----------------
+  if (!USE_PRECOMPUTED_FLAGS) {
+    observeEvent(input$station, {
+      station_vals <- get_station_data(input$station) |>
+        pull(parameter_value)
+
+      new_min <- unname(pmax(min(station_vals, na.rm = TRUE) * 0.9, 1))
+      new_max <- unname(ceiling(quantile(station_vals, 0.999, na.rm = TRUE) * 1.5))
+
+      step_vals <- abs(diff(station_vals))
+      new_j <- unname(ceiling(quantile(step_vals, 0.999, na.rm = TRUE)) * 1.25)
+
+      updateSliderInput(session, "physical_limits", value = c(new_min, new_max))
+      updateSliderInput(session, "j", value = new_j)
+    }, ignoreNULL = FALSE)
+  }
   
   ## Display station name -------------
   station_display <- reactive({
@@ -46,22 +59,31 @@ function(input, output, session){
   })
   
   ## Apply flagger to filtered data -------------
-  flagged_df <- eventReactive(input$submit,{
-    df <- filtered_df()
-    flags <- flagger(x = df$parameter_value,
-                     warmup = input$warmup,
-                            j = input$j,
-                            k = input$k,
-                            consec_threshold = input$consec_thr,
-                            stuck_threshold = input$stuck_thr,
-                            physical_min = input$physical_limits[1],
-                            physical_max = input$physical_limits[2]
-                     )
-   df |> 
-      mutate(flag = flags[["flag"]],
-             flag_ann = flags[["annotation"]]
-      )
-  },ignoreNULL = FALSE)
+  flagged_df <- if (USE_PRECOMPUTED_FLAGS) {
+    eventReactive(input$submit, {
+      get_flagged_station_data(input$station) |>
+        filter(datetime >= input$start_date,
+               datetime <= input$end_date) |>
+        arrange(datetime)
+    }, ignoreNULL = FALSE)
+  } else {
+    eventReactive(input$submit,{
+      df <- filtered_df()
+      flags <- flagger(x = df$parameter_value,
+                       warmup = input$warmup,
+                              j = input$j,
+                              k = input$k,
+                              consec_threshold = input$consec_thr,
+                              stuck_threshold = input$stuck_thr,
+                              physical_min = input$physical_limits[1],
+                              physical_max = input$physical_limits[2]
+                       )
+     df |>
+        mutate(flag = flags[["flag"]],
+               flag_ann = flags[["annotation"]]
+        )
+    },ignoreNULL = FALSE)
+  }
   
 ### xts format data -----------------
     xts_flagged <- reactive({
@@ -81,6 +103,7 @@ function(input, output, session){
     
     x <- xts(df[c("good", "warmup", "warmup_extreme", "extreme", "stuck", "stat_outlier", "flag_ann_code")], order.by = df$datetime)
     attr(x, "ann_levels") <- ann_lvls
+    attr(x, "value_max") <- max(df$parameter_value, na.rm = TRUE)
     x
   })
   
@@ -131,7 +154,7 @@ function(input, output, session){
                strokeWidth = 0, drawPoints = FALSE, color = "rgba(0,0,0,0)") |>
       dyAxis("y2", drawGrid = FALSE, valueRange = c(0, 1), independentTicks = FALSE) |>
       # normal y axis
-      dyAxis("y", label = "EC (uS/cm)", valueRange = c(-30, max(df$parameter_value, na.rm = TRUE) * 1.05)) |>
+      dyAxis("y", label = "EC (uS/cm)", valueRange = c(-30, attr(df, "value_max") * 1.05)) |>
       # x axis padding
       dyAxis("x", rangePad = 10) |> 
       dyOptions(
@@ -304,7 +327,7 @@ function(input, output, session){
                strokeWidth = 0, drawPoints = FALSE, color = "rgba(0,0,0,0)") |>
       dyAxis("y2", drawGrid = FALSE, valueRange = c(0, 1), independentTicks = FALSE) |>
       # normal y axis
-      dyAxis("y", label = "EC (uS/cm)", valueRange = c(-30, max(df$parameter_value, na.rm = TRUE) * 1.05)) |>
+      dyAxis("y", label = "EC (uS/cm)", valueRange = c(-30, attr(df, "value_max") * 1.05)) |>
       # x axis padding
       dyAxis("x", rangePad = 10) |> 
       dyOptions(
@@ -435,20 +458,25 @@ function(input, output, session){
   
   observeEvent(input$save_note, {
     rng <- pending_range()
-    
+    defaults <- if (USE_PRECOMPUTED_FLAGS) precomputed_defaults() else NULL
+
     row <- tibble::tibble(
       cdec_id      = input$station,
       datetime_start = as.character(format(rng[1], "%Y-%m-%d %H:%M")),
       datetime_end   = as.character(format(rng[2], "%Y-%m-%d %H:%M")),
       reason    = input$flag_type,
       notes     = input$note_detail,
-      warmup_vals = input$warmup,
-      lower_limit = input$physical_limits[1],
-      upper_limit = input$physical_limits[2],
-      consec_threshold = input$consec_thr,
-      stuck_threshold = input$stuck_thr,
-      mad_mult = input$k,
-      jump_threshold = input$j,
+      data_source = if (USE_PRECOMPUTED_FLAGS) "precomputed:flagged_allstations.parquet" else "live",
+      # fixed defaults (warmup/consec/stuck/k) match the hardcoded values used
+      # in download_data.R's flag_data(); min/max/j vary by station via
+      # precomputed_defaults(), matching get_inputs() in that same script.
+      warmup_vals = if (USE_PRECOMPUTED_FLAGS) 12 else input$warmup,
+      lower_limit = if (USE_PRECOMPUTED_FLAGS) defaults$min else input$physical_limits[1],
+      upper_limit = if (USE_PRECOMPUTED_FLAGS) defaults$max else input$physical_limits[2],
+      consec_threshold = if (USE_PRECOMPUTED_FLAGS) 24 else input$consec_thr,
+      stuck_threshold = if (USE_PRECOMPUTED_FLAGS) 16 else input$stuck_thr,
+      mad_mult = if (USE_PRECOMPUTED_FLAGS) 8 else input$k,
+      jump_threshold = if (USE_PRECOMPUTED_FLAGS) defaults$j else input$j,
       logged_by = input$person_logging,
       logged_at = as.character(format(Sys.time(), "%Y-%m-%d %H:%M"))
     )
@@ -592,12 +620,13 @@ function(input, output, session){
       ) +
       labs(y = "EC", title = "Episode Data (12 hours before and after episode)") +
       theme_bw() + 
-      theme(legend.text = element_text(size = 16),
-            legend.title = element_text(size = 20),
-            axis.text = element_text(size = 16),
-            axis.title = element_text(size = 20),
-            plot.title = element_text(hjust = 0.5, size = 18, face = "bold"))
-  })
+      theme(legend.text = element_text(size = 13),
+            legend.title = element_text(size = 14),
+            axis.text = element_text(size = 13),
+            axis.title = element_text(size = 14),
+            plot.title = element_text(hjust = 0.5, size = 15, face = "bold"),
+            aspect.ratio = 0.4)
+  }, res = 96)
   
   ## Tab 3 -----------
   ### Station summary -----------
