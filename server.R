@@ -526,11 +526,10 @@ function(input, output, session){
   
   observeEvent(flagged_windows(), {
     n <- num_windows()
-    updateNumericInput(
+    updateSelectInput(
       session, "episode_num",
-      min = if (n == 0) 0 else 1,
-      max = n,
-      value = if (n == 0) 0 else 1
+      choices  = if (n > 0) setNames(seq_len(n), paste("Episode", seq_len(n))) else c("No episodes found" = "0"),
+      selected = if (n > 0) "1" else "0"
     )
   })
 
@@ -552,20 +551,29 @@ function(input, output, session){
   output$episode_context_plot <- renderDygraph({
     req(input$episode_num, flagged_windows())
     shiny::validate(need(num_windows() > 0, "No flagged episodes in this range."))
-    win <- flagged_windows()[[input$episode_num]]
-
-    dygraph(context_daily(), main = "Episode Temporal Context") |>
+    win <- flagged_windows()[[as.integer(input$episode_num)]]
+    
+    g <- dygraph(context_daily(), main = "Episode Temporal Context") |>
       dySeries(c("lwr", "ec", "upr"), label = "EC (daily range)", color = "rgba(80,80,80,0.8)") |>
       dyOptions(useDataTimezone = TRUE, drawGrid = FALSE) |>
-      dyShading(from = int_start(win), to = int_end(win), color = "rgba(255, 145, 0, 0.95)") |>
+      dyShading(from = int_start(win), to = int_end(win), color = "rgba(255, 193, 7, 0.9)") |>
       dyLegend(show = "never") |>
       dyAxis("y", label = "")
+    
+    for (i in seq_along(flagged_windows())) {
+      w <- flagged_windows()[[i]]
+      day_x <- as.POSIXct(as.Date(int_start(w)), tz = "America/Los_Angeles")
+      g <- g |> dyAnnotation(x = day_x, text = as.character(i),
+                             tooltip = paste0("Episode ", i),
+                             attachAtBottom = TRUE, width = 24,, height = 20)
+    }
+    g
   })
 
   output$episode_plot <- renderPlot({
     req(input$episode_num, flagged_windows())
     shiny::validate(need(num_windows() > 0, "No flagged episodes in this range."))
-    df <- flagged_df() |> filter(datetime %within% flagged_windows()[[input$episode_num]]) 
+    df <- flagged_df() |> filter(datetime %within% flagged_windows()[[as.integer(input$episode_num)]]) 
     
     ggplot(mapping = aes(datetime, parameter_value)) + 
       geom_line(data = df) +

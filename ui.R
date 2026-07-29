@@ -183,9 +183,9 @@ ui <- page_navbar(
           "Episode Viewer",
           br(),
           textOutput("max_windows"),
-          numericInput("episode_num",
-                       label = "Select episode to view:",
-                       min = 1, value = 1, max = 1),
+          selectInput("episode_num",
+                      label = "Select episode to view:",
+                      choices = 1),
           hr(),
           div(
             style = "display: flex; flex-direction: column; align-items: center; width: 100%; margin-bottom: 5px;",
