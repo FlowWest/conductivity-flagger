@@ -2,7 +2,7 @@
 
 Internal app to optimize conductivity (EC) flagging
 
-## Methods 
+## Methods
 
 - Data are downloaded from CDEC (2020-2025) from 34 stations
 - `flagger` function run on all stations
@@ -11,9 +11,10 @@ Internal app to optimize conductivity (EC) flagging
   - **consecutive erroneous flagged data** needed in order to require a new baseline generation
   - **physical min and max** for each station to cut off extreme outliers
   - continuous **stuck** (repeating) values
-  - **k** and **j** for hampel filter to determine MAD multiplier and jump threshold for outliers 
-  
+  - **k** and **j** for hampel filter to determine MAD multiplier and jump threshold for outliers
+
 ## App includes:
+
 - data flagging and viewing tools
 - table of flagged data and % flagged
 - episode viewers to zoom in on hampel events and evaluate whether the hampel filter is necessary
@@ -26,10 +27,14 @@ Internal app to optimize conductivity (EC) flagging
 
 Allows adjusting QC flags parameters
 
-<https://flowwest.shinyapps.io/conductivity-flagger-internal/> Turn app_config to `USE_PRECOMPUTED_FLAGS <- FALSE`
+<https://flowwest.shinyapps.io/conductivity-flagger-internal/>
+
+Turn app_config to `USE_PRECOMPUTED_FLAGS <- FALSE`
 
 ### Demo version
 
 Uses default flag parameters - preloads flagged data, speeding app up
 
-<https://flowwest.shinyapps.io/conductivity-flagger-demo/> Turn app_config to `USE_PRECOMPUTED_FLAGS <- TRUE`
+<https://flowwest.shinyapps.io/conductivity-flagger-demo/>
+
+Turn app_config to `USE_PRECOMPUTED_FLAGS <- TRUE`
